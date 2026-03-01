@@ -1,0 +1,9 @@
+/* Global app wrapper styles */
+.App {
+  min-height: 100vh;
+}
+
+/* Suspense fallback — invisible placeholder that keeps scroll position stable */
+.section-loader {
+  min-height: 100vh;
+}

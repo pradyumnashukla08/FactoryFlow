@@ -1,0 +1,131 @@
+.problem {
+  background: var(--off-white);
+}
+
+.problem__header {
+  margin-bottom: 48px;
+}
+
+.problem__grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 48px;
+  align-items: start;
+}
+
+.problem__list {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.problem__item {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  background: var(--white);
+  padding: 18px 24px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--light-grey);
+  transition: var(--transition);
+}
+
+.problem__item:hover {
+  transform: translateX(8px);
+  border-color: var(--danger);
+  box-shadow: var(--shadow-md);
+}
+
+.problem__icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  background: rgba(239, 68, 68, 0.1);
+  color: var(--danger);
+  border-radius: var(--radius-sm);
+  flex-shrink: 0;
+}
+
+.problem__text {
+  font-size: 0.95rem;
+  font-weight: 500;
+  color: var(--text);
+}
+
+.problem__impact-card {
+  background: var(--primary);
+  color: var(--white);
+  padding: 36px;
+  border-radius: var(--radius-lg);
+  position: sticky;
+  top: 100px;
+}
+
+.problem__impact-tag {
+  display: inline-block;
+  background: rgba(249, 115, 22, 0.2);
+  color: var(--accent);
+  padding: 6px 14px;
+  border-radius: 50px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  margin-bottom: 16px;
+}
+
+.problem__impact-title {
+  font-size: 1.4rem;
+  font-weight: 700;
+  margin-bottom: 24px;
+}
+
+.problem__impact-calc {
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: var(--radius-md);
+  padding: 20px;
+  margin-bottom: 20px;
+}
+
+.problem__calc-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 0;
+  font-size: 0.9rem;
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.problem__calc-value {
+  font-weight: 700;
+  color: var(--white);
+}
+
+.problem__calc-value--accent {
+  color: var(--accent);
+  font-size: 1.2rem;
+}
+
+.problem__calc-divider {
+  height: 1px;
+  background: rgba(255, 255, 255, 0.15);
+  margin: 8px 0;
+}
+
+.problem__calc-row--result {
+  font-weight: 600;
+  color: var(--white);
+}
+
+.problem__impact-note {
+  font-size: 0.85rem;
+  color: rgba(255, 255, 255, 0.5);
+  line-height: 1.6;
+}
+
+@media (max-width: 768px) {
+  .problem__grid {
+    grid-template-columns: 1fr;
+  }
+}

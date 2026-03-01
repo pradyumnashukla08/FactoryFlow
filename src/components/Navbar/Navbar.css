@@ -1,0 +1,135 @@
+.navbar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 1000;
+  padding: 16px 0;
+  transition: var(--transition);
+}
+
+.navbar--scrolled {
+  background: rgba(11, 31, 59, 0.97);
+  backdrop-filter: blur(12px);
+  padding: 10px 0;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+}
+
+.navbar__inner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.navbar__logo {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 1.4rem;
+  font-weight: 800;
+  color: var(--white);
+  z-index: 1001;
+}
+
+.navbar__logo-icon {
+  font-size: 1.6rem;
+}
+
+.navbar__logo-accent {
+  color: var(--accent);
+}
+
+.navbar__links {
+  display: flex;
+  align-items: center;
+  gap: 32px;
+}
+
+.navbar__links li a {
+  color: rgba(255, 255, 255, 0.8);
+  font-size: 0.9rem;
+  font-weight: 500;
+  transition: var(--transition);
+  position: relative;
+}
+
+.navbar__links li a:hover {
+  color: var(--white);
+}
+
+.navbar__links li a::after {
+  content: "";
+  position: absolute;
+  bottom: -4px;
+  left: 0;
+  width: 0;
+  height: 2px;
+  background: var(--accent);
+  transition: var(--transition);
+}
+
+.navbar__links li a:hover::after {
+  width: 100%;
+}
+
+.navbar__links-cta a::after {
+  display: none;
+}
+
+.navbar__links-cta .btn {
+  padding: 10px 24px;
+  font-size: 0.85rem;
+}
+
+.navbar__links-cta .btn-login {
+  background: transparent;
+  border: 2px solid var(--accent);
+  color: var(--accent);
+  border-radius: 8px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: var(--transition);
+  text-decoration: none;
+}
+
+.navbar__links-cta .btn-login:hover {
+  background: var(--accent);
+  color: var(--white);
+}
+
+.navbar__toggle {
+  display: none;
+  background: none;
+  color: var(--white);
+  z-index: 1001;
+}
+
+/* MOBILE */
+@media (max-width: 900px) {
+  .navbar__toggle {
+    display: flex;
+  }
+
+  .navbar__links {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: var(--primary);
+    flex-direction: column;
+    justify-content: center;
+    gap: 28px;
+    transform: translateX(100%);
+    transition: transform 0.35s ease;
+  }
+
+  .navbar__links--open {
+    transform: translateX(0);
+  }
+
+  .navbar__links li a {
+    font-size: 1.2rem;
+    color: var(--white);
+  }
+}

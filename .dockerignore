@@ -1,0 +1,13 @@
+node_modules
+server/node_modules
+build
+.git
+.env
+server/.env
+logs
+server/logs
+*.md
+.vscode
+coverage
+.prettierrc
+.prettierignore
