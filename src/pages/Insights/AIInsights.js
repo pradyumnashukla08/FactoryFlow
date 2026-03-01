@@ -10,7 +10,6 @@ import {
   IconButton,
   Tooltip,
   LinearProgress,
-  Alert,
   Avatar,
   Divider,
   Paper,
@@ -29,7 +28,6 @@ import {
   AutoAwesome as AIIcon,
   Psychology as BrainIcon,
   Lightbulb as LightbulbIcon,
-  EmojiEvents as TrophyIcon,
   Star as StarIcon,
   Analytics as AnalyticsIcon,
 } from "@mui/icons-material";
