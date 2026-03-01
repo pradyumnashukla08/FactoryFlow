@@ -764,12 +764,10 @@ const Dashboard = () => {
                     <ResponsiveContainer width="100%" height="100%">
                       <PieChart>
                         <Pie
-                          data={topCustomers
-                            .slice(0, 6)
-                            .map((c) => ({
-                              name: c.company_name || c.name,
-                              value: Number(c.total_paid) || 0,
-                            }))}
+                          data={topCustomers.slice(0, 6).map((c) => ({
+                            name: c.company_name || c.name,
+                            value: Number(c.total_paid) || 0,
+                          }))}
                           cx="50%"
                           cy="50%"
                           innerRadius={48}
