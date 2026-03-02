@@ -1,0 +1,13 @@
+{
+  "compilerOptions": {
+    "checkJs": false,
+    "module": "commonjs",
+    "target": "es2020",
+    "moduleResolution": "node",
+    "baseUrl": ".",
+    "paths": {},
+    "resolveJsonModule": true
+  },
+  "include": ["**/*.js"],
+  "exclude": ["node_modules", "__tests__"]
+}

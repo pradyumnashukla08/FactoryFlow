@@ -258,11 +258,9 @@ router.post("/customers", upload.single("file"), async (req, res, next) => {
 
     // Validate required columns
     if (!colMap.name) {
-      return res
-        .status(400)
-        .json({
-          error: "Missing required column: Name. Make sure your header row includes 'Name'",
-        });
+      return res.status(400).json({
+        error: "Missing required column: Name. Make sure your header row includes 'Name'",
+      });
     }
     if (!colMap.phone && !colMap.company_name) {
       return res
@@ -380,7 +378,7 @@ router.post("/customers", upload.single("file"), async (req, res, next) => {
             row.city,
             row.state,
             row.pincode,
-            row.outstanding_balance,
+            0, // Force outstanding_balance to 0 on import (prevent arbitrary balance injection)
             row.notes,
           ],
         );

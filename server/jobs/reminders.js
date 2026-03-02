@@ -1,6 +1,7 @@
 const cron = require("node-cron");
 const nodemailer = require("nodemailer");
 const db = require("../config/db");
+const { escapeHtml } = require("../middleware/sanitize");
 
 let transporter = null;
 
@@ -77,20 +78,20 @@ async function processPaymentReminders() {
         (new Date() - new Date(invoice.due_date)) / (1000 * 60 * 60 * 24),
       );
 
-      const subject = `Payment Reminder: Invoice ${invoice.invoice_number} — ₹${Number(invoice.grand_total).toLocaleString("en-IN")}`;
+      const subject = `Payment Reminder: Invoice ${escapeHtml(invoice.invoice_number)} — ₹${Number(invoice.grand_total).toLocaleString("en-IN")}`;
       const body = `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
           <div style="background: #0B1F3B; padding: 20px; text-align: center;">
             <h1 style="color: #F97316; margin: 0;">⚙ FactoryFlow</h1>
           </div>
           <div style="padding: 30px; background: #f8f9fa;">
-            <p>Dear <strong>${invoice.customer_name}</strong>,</p>
+            <p>Dear <strong>${escapeHtml(invoice.customer_name)}</strong>,</p>
             <p>This is a friendly reminder that payment for the following invoice is ${daysOverdue > 0 ? `overdue by ${daysOverdue} day(s)` : "due today"}:</p>
             <div style="background: white; padding: 20px; border-radius: 8px; margin: 20px 0;">
               <table style="width: 100%; border-collapse: collapse;">
                 <tr>
                   <td style="padding: 8px; color: #666;">Invoice Number</td>
-                  <td style="padding: 8px; font-weight: bold;">${invoice.invoice_number}</td>
+                  <td style="padding: 8px; font-weight: bold;">${escapeHtml(invoice.invoice_number)}</td>
                 </tr>
                 <tr>
                   <td style="padding: 8px; color: #666;">Amount</td>
@@ -103,18 +104,14 @@ async function processPaymentReminders() {
               </table>
             </div>
             <p>Please arrange the payment at your earliest convenience.</p>
-            <p style="color: #666; font-size: 14px;">— ${invoice.factory_name || "FactoryFlow"}</p>
+            <p style="color: #666; font-size: 14px;">— ${escapeHtml(invoice.factory_name || "FactoryFlow")}</p>
           </div>
         </div>
       `;
 
       let status = "pending";
       if (invoice.customer_email) {
-        const sent = await sendEmailReminder(
-          invoice.customer_email,
-          subject,
-          body,
-        );
+        const sent = await sendEmailReminder(invoice.customer_email, subject, body);
         status = sent ? "sent" : "failed";
       }
 

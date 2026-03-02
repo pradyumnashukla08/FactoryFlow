@@ -27,6 +27,7 @@ const InvoiceDetail = lazy(() => import("./pages/Invoices/InvoiceDetail"));
 const PaymentList = lazy(() => import("./pages/Payments/PaymentList"));
 const Settings = lazy(() => import("./pages/Settings/Settings"));
 const AIInsights = lazy(() => import("./pages/Insights/AIInsights"));
+const NotFound = lazy(() => import("./pages/NotFound/NotFound"));
 
 const PageLoader = () => (
   <Box sx={{ display: "flex", justifyContent: "center", alignItems: "center", minHeight: "60vh" }}>
@@ -85,7 +86,7 @@ function App() {
           </Route>
 
           {/* Catch all */}
-          <Route path="*" element={<Navigate to="/" replace />} />
+          <Route path="*" element={<NotFound />} />
         </Routes>
       </Suspense>
     </ErrorBoundary>

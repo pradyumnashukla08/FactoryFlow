@@ -25,6 +25,7 @@ const PaymentList = () => {
   const [payments, setPayments] = useState([]);
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(0);
+  const [total, setTotal] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(25);
   const [formOpen, setFormOpen] = useState(false);
 
@@ -33,6 +34,7 @@ const PaymentList = () => {
       setLoading(true);
       const result = await api.getPayments({ page: page + 1, limit: rowsPerPage });
       setPayments(result.payments || []);
+      setTotal(result.total || 0);
     } catch (err) {
       toast.error("Failed to load payments");
     } finally {
@@ -182,7 +184,7 @@ const PaymentList = () => {
         </TableContainer>
         <TablePagination
           component="div"
-          count={-1}
+          count={total}
           page={page}
           onPageChange={(_, p) => setPage(p)}
           rowsPerPage={rowsPerPage}
@@ -191,7 +193,6 @@ const PaymentList = () => {
             setPage(0);
           }}
           rowsPerPageOptions={[10, 25, 50]}
-          labelDisplayedRows={({ from, to }) => `${from}–${to}`}
         />
       </Card>
 

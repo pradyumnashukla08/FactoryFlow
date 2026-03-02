@@ -34,6 +34,7 @@ const InvoiceList = () => {
   const [invoices, setInvoices] = useState([]);
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(0);
+  const [total, setTotal] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(25);
   const [statusFilter, setStatusFilter] = useState("");
   const [deleteDialog, setDeleteDialog] = useState(null);
@@ -45,6 +46,7 @@ const InvoiceList = () => {
       if (statusFilter) params.status = statusFilter;
       const result = await api.getInvoices(params);
       setInvoices(result.invoices || []);
+      setTotal(result.total || 0);
     } catch (err) {
       toast.error("Failed to load invoices");
     } finally {
@@ -242,7 +244,7 @@ const InvoiceList = () => {
         </TableContainer>
         <TablePagination
           component="div"
-          count={-1}
+          count={total}
           page={page}
           onPageChange={(_, p) => setPage(p)}
           rowsPerPage={rowsPerPage}
@@ -251,7 +253,6 @@ const InvoiceList = () => {
             setPage(0);
           }}
           rowsPerPageOptions={[10, 25, 50]}
-          labelDisplayedRows={({ from, to }) => `${from}–${to}`}
         />
       </Card>
 

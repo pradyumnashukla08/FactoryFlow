@@ -1,6 +1,7 @@
 const express = require("express");
 const { body, validationResult } = require("express-validator");
 const db = require("../config/db");
+const { authMiddleware } = require("../middleware/auth");
 
 const router = express.Router();
 
@@ -28,8 +29,7 @@ router.post(
         return res.status(400).json({ errors: errors.array() });
       }
 
-      const { name, factory_name, phone, email, city, billing_range, message } =
-        req.body;
+      const { name, factory_name, phone, email, city, billing_range, message } = req.body;
 
       const result = await db.query(
         `INSERT INTO demo_requests (name, factory_name, phone, email, city, billing_range, message)
@@ -38,8 +38,7 @@ router.post(
       );
 
       res.status(201).json({
-        message:
-          "Demo request submitted successfully! We will contact you within 24 hours.",
+        message: "Demo request submitted successfully! We will contact you within 24 hours.",
         request: result.rows[0],
       });
     } catch (err) {
@@ -49,10 +48,11 @@ router.post(
 );
 
 // ------ LIST DEMO REQUESTS (admin only) ------
-router.get("/", async (req, res, next) => {
-  // In production, add admin auth middleware here
+router.get("/", authMiddleware, async (req, res, next) => {
   try {
-    const { status, page = 1, limit = 25 } = req.query;
+    const { status } = req.query;
+    const limit = Math.min(parseInt(req.query.limit) || 25, 100);
+    const page = Math.max(parseInt(req.query.page) || 1, 1);
     const offset = (page - 1) * limit;
     let query = "SELECT * FROM demo_requests";
     const params = [];
@@ -73,9 +73,18 @@ router.get("/", async (req, res, next) => {
 });
 
 // ------ UPDATE DEMO REQUEST STATUS ------
-router.patch("/:id", async (req, res, next) => {
+const VALID_DEMO_STATUSES = ["new", "contacted", "demo_scheduled", "converted", "closed"];
+
+router.patch("/:id", authMiddleware, async (req, res, next) => {
   try {
     const { status } = req.body;
+
+    if (!status || !VALID_DEMO_STATUSES.includes(status)) {
+      return res
+        .status(400)
+        .json({ error: `Invalid status. Must be one of: ${VALID_DEMO_STATUSES.join(", ")}` });
+    }
+
     const result = await db.query(
       "UPDATE demo_requests SET status = $1 WHERE id = $2 RETURNING *",
       [status, req.params.id],

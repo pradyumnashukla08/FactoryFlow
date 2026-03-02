@@ -1,13 +1,21 @@
 const db = require("../config/db");
 
-async function runMigrations() {
-  console.log("🔄 Running database migrations...\n");
+/**
+ * Versioned migration system.
+ *
+ * Each migration has a unique version number and a description.
+ * Already-applied migrations are tracked in the `schema_migrations` table
+ * and are skipped on subsequent runs. This makes migrations safe to run
+ * repeatedly (idempotent) and supports incremental schema changes.
+ */
 
-  const queries = [
-    // ============================================
-    // 1. USERS (Factory Owners / Admins)
-    // ============================================
-    `CREATE TABLE IF NOT EXISTS users (
+// ── Migration definitions ──────────────────────────────
+// Add new migrations to the END of this array. Never remove or reorder existing entries.
+const migrations = [
+  {
+    version: 1,
+    description: "Create users table",
+    sql: `CREATE TABLE IF NOT EXISTS users (
       id SERIAL PRIMARY KEY,
       name VARCHAR(100) NOT NULL,
       email VARCHAR(150) UNIQUE NOT NULL,
@@ -20,11 +28,11 @@ async function runMigrations() {
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
       updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )`,
-
-    // ============================================
-    // 2. CUSTOMERS
-    // ============================================
-    `CREATE TABLE IF NOT EXISTS customers (
+  },
+  {
+    version: 2,
+    description: "Create customers table",
+    sql: `CREATE TABLE IF NOT EXISTS customers (
       id SERIAL PRIMARY KEY,
       user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
       name VARCHAR(150) NOT NULL,
@@ -42,11 +50,11 @@ async function runMigrations() {
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
       updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )`,
-
-    // ============================================
-    // 3. ORDERS
-    // ============================================
-    `CREATE TABLE IF NOT EXISTS orders (
+  },
+  {
+    version: 3,
+    description: "Create orders table",
+    sql: `CREATE TABLE IF NOT EXISTS orders (
       id SERIAL PRIMARY KEY,
       user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
       customer_id INTEGER REFERENCES customers(id) ON DELETE SET NULL,
@@ -66,11 +74,11 @@ async function runMigrations() {
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
       updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )`,
-
-    // ============================================
-    // 4. PRODUCTION LOG
-    // ============================================
-    `CREATE TABLE IF NOT EXISTS production_logs (
+  },
+  {
+    version: 4,
+    description: "Create production_logs table",
+    sql: `CREATE TABLE IF NOT EXISTS production_logs (
       id SERIAL PRIMARY KEY,
       order_id INTEGER REFERENCES orders(id) ON DELETE CASCADE,
       user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
@@ -82,11 +90,11 @@ async function runMigrations() {
       notes TEXT,
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )`,
-
-    // ============================================
-    // 5. INVOICES
-    // ============================================
-    `CREATE TABLE IF NOT EXISTS invoices (
+  },
+  {
+    version: 5,
+    description: "Create invoices table",
+    sql: `CREATE TABLE IF NOT EXISTS invoices (
       id SERIAL PRIMARY KEY,
       user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
       order_id INTEGER REFERENCES orders(id) ON DELETE SET NULL,
@@ -109,11 +117,11 @@ async function runMigrations() {
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
       updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )`,
-
-    // ============================================
-    // 6. PAYMENTS
-    // ============================================
-    `CREATE TABLE IF NOT EXISTS payments (
+  },
+  {
+    version: 6,
+    description: "Create payments table",
+    sql: `CREATE TABLE IF NOT EXISTS payments (
       id SERIAL PRIMARY KEY,
       user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
       invoice_id INTEGER REFERENCES invoices(id) ON DELETE SET NULL,
@@ -126,11 +134,11 @@ async function runMigrations() {
       notes TEXT,
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )`,
-
-    // ============================================
-    // 7. REMINDERS
-    // ============================================
-    `CREATE TABLE IF NOT EXISTS reminders (
+  },
+  {
+    version: 7,
+    description: "Create reminders table",
+    sql: `CREATE TABLE IF NOT EXISTS reminders (
       id SERIAL PRIMARY KEY,
       user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
       customer_id INTEGER REFERENCES customers(id) ON DELETE CASCADE,
@@ -144,11 +152,11 @@ async function runMigrations() {
       status VARCHAR(20) DEFAULT 'pending' CHECK (status IN ('pending', 'sent', 'failed', 'cancelled')),
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )`,
-
-    // ============================================
-    // 8. DEMO REQUESTS (from website contact form)
-    // ============================================
-    `CREATE TABLE IF NOT EXISTS demo_requests (
+  },
+  {
+    version: 8,
+    description: "Create demo_requests table",
+    sql: `CREATE TABLE IF NOT EXISTS demo_requests (
       id SERIAL PRIMARY KEY,
       name VARCHAR(100) NOT NULL,
       factory_name VARCHAR(200),
@@ -160,38 +168,83 @@ async function runMigrations() {
       status VARCHAR(20) DEFAULT 'new' CHECK (status IN ('new', 'contacted', 'demo_scheduled', 'converted', 'closed')),
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )`,
+  },
+  {
+    version: 9,
+    description: "Create performance indexes",
+    sql: [
+      `CREATE INDEX IF NOT EXISTS idx_orders_user_id ON orders(user_id)`,
+      `CREATE INDEX IF NOT EXISTS idx_orders_customer_id ON orders(customer_id)`,
+      `CREATE INDEX IF NOT EXISTS idx_orders_status ON orders(status)`,
+      `CREATE INDEX IF NOT EXISTS idx_invoices_user_id ON invoices(user_id)`,
+      `CREATE INDEX IF NOT EXISTS idx_invoices_status ON invoices(status)`,
+      `CREATE INDEX IF NOT EXISTS idx_invoices_due_date ON invoices(due_date)`,
+      `CREATE INDEX IF NOT EXISTS idx_payments_customer_id ON payments(customer_id)`,
+      `CREATE INDEX IF NOT EXISTS idx_payments_invoice_id ON payments(invoice_id)`,
+      `CREATE INDEX IF NOT EXISTS idx_reminders_status ON reminders(status)`,
+      `CREATE INDEX IF NOT EXISTS idx_reminders_scheduled_at ON reminders(scheduled_at)`,
+      `CREATE INDEX IF NOT EXISTS idx_production_logs_order_id ON production_logs(order_id)`,
+      `CREATE INDEX IF NOT EXISTS idx_customers_user_id ON customers(user_id)`,
+    ],
+  },
+  // ────────────────────────────────────────────────────
+  // ADD NEW MIGRATIONS BELOW THIS LINE
+  // ────────────────────────────────────────────────────
+];
 
-    // ============================================
-    // INDEXES for performance
-    // ============================================
-    `CREATE INDEX IF NOT EXISTS idx_orders_user_id ON orders(user_id)`,
-    `CREATE INDEX IF NOT EXISTS idx_orders_customer_id ON orders(customer_id)`,
-    `CREATE INDEX IF NOT EXISTS idx_orders_status ON orders(status)`,
-    `CREATE INDEX IF NOT EXISTS idx_invoices_user_id ON invoices(user_id)`,
-    `CREATE INDEX IF NOT EXISTS idx_invoices_status ON invoices(status)`,
-    `CREATE INDEX IF NOT EXISTS idx_invoices_due_date ON invoices(due_date)`,
-    `CREATE INDEX IF NOT EXISTS idx_payments_customer_id ON payments(customer_id)`,
-    `CREATE INDEX IF NOT EXISTS idx_payments_invoice_id ON payments(invoice_id)`,
-    `CREATE INDEX IF NOT EXISTS idx_reminders_status ON reminders(status)`,
-    `CREATE INDEX IF NOT EXISTS idx_reminders_scheduled_at ON reminders(scheduled_at)`,
-    `CREATE INDEX IF NOT EXISTS idx_production_logs_order_id ON production_logs(order_id)`,
-    `CREATE INDEX IF NOT EXISTS idx_customers_user_id ON customers(user_id)`,
-  ];
+// ── Migration runner ──────────────────────────────
+async function runMigrations() {
+  console.log("🔄 Running database migrations...\n");
 
-  for (const query of queries) {
+  // 1. Ensure the schema_migrations tracking table exists
+  await db.query(`
+    CREATE TABLE IF NOT EXISTS schema_migrations (
+      version INTEGER PRIMARY KEY,
+      description VARCHAR(255),
+      applied_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )
+  `);
+
+  // 2. Get already-applied versions
+  const applied = await db.query("SELECT version FROM schema_migrations ORDER BY version");
+  const appliedVersions = new Set(applied.rows.map((r) => r.version));
+
+  // 3. Run pending migrations in order
+  let pendingCount = 0;
+  for (const migration of migrations) {
+    if (appliedVersions.has(migration.version)) {
+      continue; // Already applied
+    }
+
     try {
-      await db.query(query);
-      // Extract table/index name for logging
-      const match = query.match(
-        /(?:TABLE|INDEX)\s+(?:IF NOT EXISTS\s+)?(\w+)/i,
-      );
-      if (match) console.log(`  ✅ ${match[1]}`);
+      // Support single SQL string or array of SQL strings
+      const statements = Array.isArray(migration.sql) ? migration.sql : [migration.sql];
+
+      for (const sql of statements) {
+        await db.query(sql);
+      }
+
+      // Record as applied
+      await db.query("INSERT INTO schema_migrations (version, description) VALUES ($1, $2)", [
+        migration.version,
+        migration.description,
+      ]);
+
+      console.log(`  ✅ v${migration.version}: ${migration.description}`);
+      pendingCount++;
     } catch (err) {
-      console.error(`  ❌ Error:`, err.message);
+      console.error(`  ❌ v${migration.version} (${migration.description}):`, err.message);
+      throw err; // Stop on failure — don't skip broken migrations
     }
   }
 
-  console.log("\n✅ All migrations completed!\n");
+  if (pendingCount === 0) {
+    console.log("  ℹ️  Database is up to date (no pending migrations).");
+  }
+
+  console.log(
+    `\n✅ Migrations complete! (${appliedVersions.size + pendingCount} total, ${pendingCount} new)\n`,
+  );
 }
 
 module.exports = runMigrations;

@@ -11,7 +11,7 @@ router.get("/customers", async (req, res, next) => {
   try {
     const result = await db.query(
       `SELECT name, company_name, email, phone, gstin, address, city, state, pincode, outstanding_balance, created_at
-       FROM customers WHERE user_id = $1 ORDER BY name`,
+       FROM customers WHERE user_id = $1 ORDER BY name LIMIT 10000`,
       [req.user.id],
     );
 
@@ -97,7 +97,7 @@ router.get("/orders", async (req, res, next) => {
       params.push(to);
       query += ` AND o.order_date <= $${params.length}`;
     }
-    query += " ORDER BY o.order_date DESC";
+    query += " ORDER BY o.order_date DESC LIMIT 10000";
 
     const result = await db.query(query, params);
     const format = req.query.format || "csv";
@@ -176,7 +176,7 @@ router.get("/invoices", async (req, res, next) => {
       params.push(to);
       query += ` AND i.invoice_date <= $${params.length}`;
     }
-    query += " ORDER BY i.invoice_date DESC";
+    query += " ORDER BY i.invoice_date DESC LIMIT 10000";
 
     const result = await db.query(query, params);
     const format = req.query.format || "csv";
@@ -250,7 +250,7 @@ router.get("/payments", async (req, res, next) => {
       params.push(to);
       query += ` AND p.payment_date <= $${params.length}`;
     }
-    query += " ORDER BY p.payment_date DESC";
+    query += " ORDER BY p.payment_date DESC LIMIT 10000";
 
     const result = await db.query(query, params);
     const format = req.query.format || "csv";

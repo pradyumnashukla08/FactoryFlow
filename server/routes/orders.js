@@ -2,16 +2,14 @@ const express = require("express");
 const { body, validationResult } = require("express-validator");
 const db = require("../config/db");
 const { authMiddleware } = require("../middleware/auth");
+const { sanitizeFields } = require("../middleware/sanitize");
 
 const router = express.Router();
 router.use(authMiddleware);
 
 // Generate unique order number
 async function generateOrderNumber(userId) {
-  const result = await db.query(
-    "SELECT COUNT(*) FROM orders WHERE user_id = $1",
-    [userId],
-  );
+  const result = await db.query("SELECT COUNT(*) FROM orders WHERE user_id = $1", [userId]);
   const count = parseInt(result.rows[0].count) + 1;
   const date = new Date();
   const yy = date.getFullYear().toString().slice(-2);
@@ -22,7 +20,9 @@ async function generateOrderNumber(userId) {
 // ------ LIST ORDERS ------
 router.get("/", async (req, res, next) => {
   try {
-    const { status, customer_id, priority, page = 1, limit = 25 } = req.query;
+    const { status, customer_id, priority, search } = req.query;
+    const limit = Math.min(parseInt(req.query.limit) || 25, 100);
+    const page = Math.max(parseInt(req.query.page) || 1, 1);
     const offset = (page - 1) * limit;
     let query = `SELECT o.*, c.name as customer_name, c.company_name
                  FROM orders o LEFT JOIN customers c ON o.customer_id = c.id
@@ -45,13 +45,30 @@ router.get("/", async (req, res, next) => {
       query += ` AND o.priority = $${paramCount}`;
       params.push(priority);
     }
+    if (search) {
+      paramCount++;
+      query += ` AND (o.product_name ILIKE $${paramCount} OR c.name ILIKE $${paramCount})`;
+      params.push(`%${search}%`);
+    }
+
+    // Count query (same filters, no LIMIT/OFFSET)
+    const countQuery = query.replace(
+      /SELECT o\.\*, c\.name as customer_name, c\.company_name/i,
+      "SELECT COUNT(*)",
+    );
+    const countParams = [...params];
 
     query += ` ORDER BY o.created_at DESC LIMIT $${paramCount + 1} OFFSET $${paramCount + 2}`;
     params.push(limit, offset);
 
-    const result = await db.query(query, params);
+    const [result, countResult] = await Promise.all([
+      db.query(query, params),
+      db.query(countQuery, countParams),
+    ]);
+
     res.json({
       orders: result.rows,
+      total: parseInt(countResult.rows[0].count),
       page: parseInt(page),
       limit: parseInt(limit),
     });
@@ -90,9 +107,7 @@ router.post(
   "/",
   [
     body("customer_id").isInt().withMessage("Customer is required"),
-    body("items")
-      .isArray({ min: 1 })
-      .withMessage("At least one item is required"),
+    body("items").isArray({ min: 1 }).withMessage("At least one item is required"),
   ],
   async (req, res, next) => {
     try {
@@ -106,13 +121,25 @@ router.post(
         delivery_date,
         priority,
         items,
-        notes,
         total_quantity,
         total_amount,
         tax_amount,
         discount_amount,
         grand_total,
       } = req.body;
+
+      const { notes } = sanitizeFields(req.body, ["notes"]);
+
+      // Verify customer belongs to this user (prevents IDOR)
+      if (customer_id) {
+        const custCheck = await db.query(
+          "SELECT id FROM customers WHERE id = $1 AND user_id = $2",
+          [customer_id, req.user.id],
+        );
+        if (custCheck.rows.length === 0) {
+          return res.status(404).json({ error: "Customer not found." });
+        }
+      }
 
       const order_number = await generateOrderNumber(req.user.id);
 
@@ -210,9 +237,7 @@ router.patch("/:id/status", async (req, res, next) => {
       "cancelled",
     ];
     if (!validStatuses.includes(status)) {
-      return res
-        .status(400)
-        .json({ error: `Invalid status. Valid: ${validStatuses.join(", ")}` });
+      return res.status(400).json({ error: `Invalid status. Valid: ${validStatuses.join(", ")}` });
     }
 
     const result = await db.query(

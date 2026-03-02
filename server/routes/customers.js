@@ -2,6 +2,7 @@ const express = require("express");
 const { body, validationResult } = require("express-validator");
 const db = require("../config/db");
 const { authMiddleware } = require("../middleware/auth");
+const { sanitizeFields } = require("../middleware/sanitize");
 
 const router = express.Router();
 router.use(authMiddleware);
@@ -9,7 +10,9 @@ router.use(authMiddleware);
 // ------ LIST CUSTOMERS ------
 router.get("/", async (req, res, next) => {
   try {
-    const { search, page = 1, limit = 25 } = req.query;
+    const { search } = req.query;
+    const limit = Math.min(parseInt(req.query.limit) || 25, 100);
+    const page = Math.max(parseInt(req.query.page) || 1, 1);
     const offset = (page - 1) * limit;
     let query = `SELECT * FROM customers WHERE user_id = $1 AND is_active = true`;
     const params = [req.user.id];
@@ -47,10 +50,10 @@ router.get("/", async (req, res, next) => {
 // ------ GET SINGLE CUSTOMER ------
 router.get("/:id", async (req, res, next) => {
   try {
-    const result = await db.query(
-      "SELECT * FROM customers WHERE id = $1 AND user_id = $2",
-      [req.params.id, req.user.id],
-    );
+    const result = await db.query("SELECT * FROM customers WHERE id = $1 AND user_id = $2", [
+      req.params.id,
+      req.user.id,
+    ]);
     if (result.rows.length === 0) {
       return res.status(404).json({ error: "Customer not found." });
     }
@@ -74,18 +77,8 @@ router.post(
         return res.status(400).json({ errors: errors.array() });
       }
 
-      const {
-        name,
-        company_name,
-        email,
-        phone,
-        gstin,
-        address,
-        city,
-        state,
-        pincode,
-        notes,
-      } = req.body;
+      const { name, company_name, email, phone, gstin, address, city, state, pincode, notes } =
+        sanitizeFields(req.body, ["name", "company_name", "address", "city", "notes"]);
 
       const result = await db.query(
         `INSERT INTO customers (user_id, name, company_name, email, phone, gstin, address, city, state, pincode, notes)
@@ -115,18 +108,10 @@ router.post(
 // ------ UPDATE CUSTOMER ------
 router.put("/:id", async (req, res, next) => {
   try {
-    const {
-      name,
-      company_name,
-      email,
-      phone,
-      gstin,
-      address,
-      city,
-      state,
-      pincode,
-      notes,
-    } = req.body;
+    // Sanitize text fields to prevent stored XSS
+    sanitizeFields(req.body, ["name", "company_name", "address", "city", "notes"]);
+    const { name, company_name, email, phone, gstin, address, city, state, pincode, notes } =
+      req.body;
 
     const result = await db.query(
       `UPDATE customers SET

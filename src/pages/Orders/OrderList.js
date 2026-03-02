@@ -39,6 +39,7 @@ const OrderList = () => {
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(0);
+  const [total, setTotal] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(25);
   const [filters, setFilters] = useState({ status: "", priority: "" });
   const [deleteDialog, setDeleteDialog] = useState(null);
@@ -51,6 +52,7 @@ const OrderList = () => {
       if (filters.priority) params.priority = filters.priority;
       const result = await api.getOrders(params);
       setOrders(result.orders || []);
+      setTotal(result.total || 0);
     } catch (err) {
       toast.error("Failed to load orders");
     } finally {
@@ -271,7 +273,7 @@ const OrderList = () => {
         </TableContainer>
         <TablePagination
           component="div"
-          count={-1}
+          count={total}
           page={page}
           onPageChange={(_, p) => setPage(p)}
           rowsPerPage={rowsPerPage}
@@ -280,7 +282,6 @@ const OrderList = () => {
             setPage(0);
           }}
           rowsPerPageOptions={[10, 25, 50]}
-          labelDisplayedRows={({ from, to }) => `${from}–${to}`}
         />
       </Card>
 

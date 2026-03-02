@@ -55,6 +55,11 @@ const corsOrigins = IS_PRODUCTION
       .filter(Boolean)
   : ["http://localhost:3000", "http://localhost:3001"];
 
+if (IS_PRODUCTION && corsOrigins.length === 0) {
+  logger.error("❌  CORS_ORIGIN not set in production. Set it to your frontend URL(s).");
+  process.exit(1);
+}
+
 app.use(
   cors({
     origin: corsOrigins,
@@ -113,12 +118,17 @@ app.get("/api/health", async (req, res) => {
   const health = {
     status: dbStatus === "ok" ? "ok" : "degraded",
     service: "FactoryFlow API",
-    version: require("./package.json").version,
     timestamp: new Date().toISOString(),
-    uptime: process.uptime(),
     database: dbStatus,
-    memory: process.memoryUsage(),
   };
+
+  // Log detailed info server-side only
+  if (dbStatus !== "ok") {
+    logger.warn("Health check degraded", {
+      uptime: process.uptime(),
+      memory: process.memoryUsage(),
+    });
+  }
 
   res.status(dbStatus === "ok" ? 200 : 503).json(health);
 });
@@ -197,3 +207,6 @@ process.on("uncaughtException", (err) => {
 });
 
 start();
+
+// Export for testing
+module.exports = app;

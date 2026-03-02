@@ -8,10 +8,7 @@ router.use(authMiddleware);
 
 // Generate invoice number
 async function generateInvoiceNumber(userId) {
-  const result = await db.query(
-    "SELECT COUNT(*) FROM invoices WHERE user_id = $1",
-    [userId],
-  );
+  const result = await db.query("SELECT COUNT(*) FROM invoices WHERE user_id = $1", [userId]);
   const count = parseInt(result.rows[0].count) + 1;
   const date = new Date();
   const fy =
@@ -24,7 +21,9 @@ async function generateInvoiceNumber(userId) {
 // ------ LIST INVOICES ------
 router.get("/", async (req, res, next) => {
   try {
-    const { status, customer_id, page = 1, limit = 25 } = req.query;
+    const { status, customer_id } = req.query;
+    const limit = Math.min(parseInt(req.query.limit) || 25, 100);
+    const page = Math.max(parseInt(req.query.page) || 1, 1);
     const offset = (page - 1) * limit;
     let query = `SELECT i.*, c.name as customer_name, c.company_name, c.gstin as customer_gstin
                  FROM invoices i LEFT JOIN customers c ON i.customer_id = c.id
@@ -43,12 +42,24 @@ router.get("/", async (req, res, next) => {
       params.push(customer_id);
     }
 
+    // Count query (same filters, no LIMIT/OFFSET)
+    const countQuery = query.replace(
+      /SELECT i\.\*, c\.name as customer_name, c\.company_name, c\.gstin as customer_gstin/i,
+      "SELECT COUNT(*)",
+    );
+    const countParams = [...params];
+
     query += ` ORDER BY i.created_at DESC LIMIT $${paramCount + 1} OFFSET $${paramCount + 2}`;
     params.push(limit, offset);
 
-    const result = await db.query(query, params);
+    const [result, countResult] = await Promise.all([
+      db.query(query, params),
+      db.query(countQuery, countParams),
+    ]);
+
     res.json({
       invoices: result.rows,
+      total: parseInt(countResult.rows[0].count),
       page: parseInt(page),
       limit: parseInt(limit),
     });
@@ -72,10 +83,10 @@ router.get("/:id", async (req, res, next) => {
       return res.status(404).json({ error: "Invoice not found." });
     }
 
-    // Get associated payments
+    // Get associated payments (scoped to this user to prevent IDOR)
     const payments = await db.query(
-      "SELECT * FROM payments WHERE invoice_id = $1 ORDER BY payment_date DESC",
-      [req.params.id],
+      "SELECT * FROM payments WHERE invoice_id = $1 AND user_id = $2 ORDER BY payment_date DESC",
+      [req.params.id, req.user.id],
     );
 
     res.json({ ...result.rows[0], payments: payments.rows });
@@ -89,9 +100,7 @@ router.post(
   "/",
   [
     body("customer_id").isInt().withMessage("Customer is required"),
-    body("items")
-      .isArray({ min: 1 })
-      .withMessage("At least one item is required"),
+    body("items").isArray({ min: 1 }).withMessage("At least one item is required"),
     body("subtotal").isFloat({ min: 0 }).withMessage("Subtotal is required"),
   ],
   async (req, res, next) => {
@@ -116,49 +125,62 @@ router.post(
       const invoice_number = await generateInvoiceNumber(req.user.id);
 
       // Calculate GST
-      const cgst = cgst_rate
-        ? (subtotal * cgst_rate) / 100
-        : (subtotal * 9) / 100;
-      const sgst = sgst_rate
-        ? (subtotal * sgst_rate) / 100
-        : (subtotal * 9) / 100;
+      const cgst = cgst_rate ? (subtotal * cgst_rate) / 100 : (subtotal * 9) / 100;
+      const sgst = sgst_rate ? (subtotal * sgst_rate) / 100 : (subtotal * 9) / 100;
       const igst = igst_rate ? (subtotal * igst_rate) / 100 : 0;
       const total_tax = cgst + sgst + igst;
       const grand_total = subtotal + total_tax;
 
-      const result = await db.query(
-        `INSERT INTO invoices (user_id, customer_id, order_id, invoice_number, due_date,
-         subtotal, cgst_rate, sgst_rate, igst_rate, cgst_amount, sgst_amount, igst_amount,
-         total_tax, grand_total, items, notes)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16) RETURNING *`,
-        [
-          req.user.id,
-          customer_id,
-          order_id,
-          invoice_number,
-          due_date,
-          subtotal,
-          cgst_rate || 9,
-          sgst_rate || 9,
-          igst_rate || 0,
-          cgst,
-          sgst,
-          igst,
-          total_tax,
-          grand_total,
-          JSON.stringify(items),
-          notes,
-        ],
-      );
+      // Use transaction to ensure invoice creation and balance update are atomic
+      const invoice = await db.transaction(async (client) => {
+        // Verify customer belongs to this user (prevents IDOR)
+        const custCheck = await client.query(
+          "SELECT id FROM customers WHERE id = $1 AND user_id = $2",
+          [customer_id, req.user.id],
+        );
+        if (custCheck.rows.length === 0) {
+          throw Object.assign(new Error("Customer not found."), { statusCode: 404 });
+        }
 
-      // Update customer outstanding balance
-      await db.query(
-        "UPDATE customers SET outstanding_balance = outstanding_balance + $1 WHERE id = $2",
-        [grand_total, customer_id],
-      );
+        const result = await client.query(
+          `INSERT INTO invoices (user_id, customer_id, order_id, invoice_number, due_date,
+           subtotal, cgst_rate, sgst_rate, igst_rate, cgst_amount, sgst_amount, igst_amount,
+           total_tax, grand_total, items, notes)
+           VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16) RETURNING *`,
+          [
+            req.user.id,
+            customer_id,
+            order_id,
+            invoice_number,
+            due_date,
+            subtotal,
+            cgst_rate || 9,
+            sgst_rate || 9,
+            igst_rate || 0,
+            cgst,
+            sgst,
+            igst,
+            total_tax,
+            grand_total,
+            JSON.stringify(items),
+            notes,
+          ],
+        );
 
-      res.status(201).json(result.rows[0]);
+        // Update customer outstanding balance
+        await client.query(
+          "UPDATE customers SET outstanding_balance = outstanding_balance + $1 WHERE id = $2",
+          [grand_total, customer_id],
+        );
+
+        return result.rows[0];
+      });
+
+      res.status(201).json(invoice);
     } catch (err) {
+      if (err.statusCode) {
+        return res.status(err.statusCode).json({ error: err.message });
+      }
       next(err);
     }
   },
@@ -170,9 +192,7 @@ router.patch("/:id/status", async (req, res, next) => {
     const { status } = req.body;
     const validStatuses = ["unpaid", "partial", "paid", "overdue", "cancelled"];
     if (!validStatuses.includes(status)) {
-      return res
-        .status(400)
-        .json({ error: `Invalid status. Valid: ${validStatuses.join(", ")}` });
+      return res.status(400).json({ error: `Invalid status. Valid: ${validStatuses.join(", ")}` });
     }
 
     const result = await db.query(
@@ -193,29 +213,36 @@ router.patch("/:id/status", async (req, res, next) => {
 // ------ DELETE INVOICE ------
 router.delete("/:id", async (req, res, next) => {
   try {
-    // Get invoice total to adjust customer balance
-    const invoice = await db.query(
-      "SELECT grand_total, customer_id, status FROM invoices WHERE id = $1 AND user_id = $2",
-      [req.params.id, req.user.id],
-    );
-
-    if (invoice.rows.length === 0) {
-      return res.status(404).json({ error: "Invoice not found." });
-    }
-
-    if (invoice.rows[0].status !== "paid") {
-      await db.query(
-        "UPDATE customers SET outstanding_balance = outstanding_balance - $1 WHERE id = $2",
-        [invoice.rows[0].grand_total, invoice.rows[0].customer_id],
+    // Use transaction to ensure balance adjustment and deletion are atomic
+    await db.transaction(async (client) => {
+      // Get invoice total to adjust customer balance
+      const invoice = await client.query(
+        "SELECT grand_total, customer_id, status FROM invoices WHERE id = $1 AND user_id = $2",
+        [req.params.id, req.user.id],
       );
-    }
 
-    await db.query("DELETE FROM invoices WHERE id = $1 AND user_id = $2", [
-      req.params.id,
-      req.user.id,
-    ]);
+      if (invoice.rows.length === 0) {
+        throw Object.assign(new Error("Invoice not found."), { statusCode: 404 });
+      }
+
+      if (invoice.rows[0].status !== "paid") {
+        await client.query(
+          "UPDATE customers SET outstanding_balance = outstanding_balance - $1 WHERE id = $2",
+          [invoice.rows[0].grand_total, invoice.rows[0].customer_id],
+        );
+      }
+
+      await client.query("DELETE FROM invoices WHERE id = $1 AND user_id = $2", [
+        req.params.id,
+        req.user.id,
+      ]);
+    });
+
     res.json({ message: "Invoice deleted successfully." });
   } catch (err) {
+    if (err.statusCode === 404) {
+      return res.status(404).json({ error: err.message });
+    }
     next(err);
   }
 });

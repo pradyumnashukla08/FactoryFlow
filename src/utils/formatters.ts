@@ -1,7 +1,17 @@
 import { format, formatDistanceToNow, isValid, parseISO } from "date-fns";
+import type {
+  OrderStatus,
+  InvoiceStatus,
+  Priority,
+  PaymentMode,
+  StatusConfig,
+  PaymentModeConfig,
+} from "../types";
 
-// Indian currency formatting (₹1,23,456.00)
-export const formatCurrency = (amount) => {
+// ── Indian Currency Formatting ────────────────────────────────
+
+/** Format as Indian currency: ₹1,23,456.00 */
+export const formatCurrency = (amount: number | string | null | undefined): string => {
   if (amount === null || amount === undefined) return "₹0.00";
   const num = Number(amount);
   if (isNaN(num)) return "₹0.00";
@@ -13,8 +23,8 @@ export const formatCurrency = (amount) => {
   }).format(num);
 };
 
-// Short currency (₹1.2L, ₹50K)
-export const formatCurrencyShort = (amount) => {
+/** Short currency format: ₹1.2L, ₹50K, ₹2.3Cr */
+export const formatCurrencyShort = (amount: number | string | null | undefined): string => {
   const num = Number(amount);
   if (isNaN(num)) return "₹0";
   if (num >= 10000000) return `₹${(num / 10000000).toFixed(1)}Cr`;
@@ -23,50 +33,60 @@ export const formatCurrencyShort = (amount) => {
   return `₹${num.toFixed(0)}`;
 };
 
-// Indian number format (1,23,456)
-export const formatNumber = (num) => {
+/** Indian number format: 1,23,456 */
+export const formatNumber = (num: number | string | null | undefined): string => {
   if (num === null || num === undefined) return "0";
   return new Intl.NumberFormat("en-IN").format(Number(num));
 };
 
-// Date formatting
-export const formatDate = (date) => {
+// ── Date Formatting ────────────────────────────────
+
+type DateInput = string | Date | null | undefined;
+
+/** Format as: 01 Jan 2026 */
+export const formatDate = (date: DateInput): string => {
   if (!date) return "—";
   const d = typeof date === "string" ? parseISO(date) : date;
   if (!isValid(d)) return "—";
   return format(d, "dd MMM yyyy");
 };
 
-export const formatDateTime = (date) => {
+/** Format as: 01 Jan 2026, 02:30 PM */
+export const formatDateTime = (date: DateInput): string => {
   if (!date) return "—";
   const d = typeof date === "string" ? parseISO(date) : date;
   if (!isValid(d)) return "—";
   return format(d, "dd MMM yyyy, hh:mm a");
 };
 
-export const formatDateShort = (date) => {
+/** Format as: 01/01/2026 */
+export const formatDateShort = (date: DateInput): string => {
   if (!date) return "—";
   const d = typeof date === "string" ? parseISO(date) : date;
   if (!isValid(d)) return "—";
   return format(d, "dd/MM/yyyy");
 };
 
-export const formatRelativeDate = (date) => {
+/** Format as: 2 days ago */
+export const formatRelativeDate = (date: DateInput): string => {
   if (!date) return "—";
   const d = typeof date === "string" ? parseISO(date) : date;
   if (!isValid(d)) return "—";
   return formatDistanceToNow(d, { addSuffix: true });
 };
 
-export const formatDateForInput = (date) => {
+/** Format as: 2026-01-01 (for HTML date inputs) */
+export const formatDateForInput = (date: DateInput): string => {
   if (!date) return "";
   const d = typeof date === "string" ? parseISO(date) : date;
   if (!isValid(d)) return "";
   return format(d, "yyyy-MM-dd");
 };
 
-// Phone formatting
-export const formatPhone = (phone) => {
+// ── Phone Formatting ────────────────────────────────
+
+/** Format Indian phone numbers: 98765-43210 or +91 98765-43210 */
+export const formatPhone = (phone: string | null | undefined): string => {
   if (!phone) return "—";
   const cleaned = phone.replace(/\D/g, "");
   if (cleaned.length === 10) {
@@ -78,8 +98,9 @@ export const formatPhone = (phone) => {
   return phone;
 };
 
-// Number to words converter (Indian system)
-const ones = [
+// ── Number to Words (Indian System) ────────────────────────────────
+
+const ones: string[] = [
   "",
   "One",
   "Two",
@@ -101,9 +122,21 @@ const ones = [
   "Eighteen",
   "Nineteen",
 ];
-const tens = ["", "", "Twenty", "Thirty", "Forty", "Fifty", "Sixty", "Seventy", "Eighty", "Ninety"];
 
-const numToWords = (n) => {
+const tens: string[] = [
+  "",
+  "",
+  "Twenty",
+  "Thirty",
+  "Forty",
+  "Fifty",
+  "Sixty",
+  "Seventy",
+  "Eighty",
+  "Ninety",
+];
+
+const numToWords = (n: number): string => {
   if (n === 0) return "";
   if (n < 20) return ones[n];
   if (n < 100) return tens[Math.floor(n / 10)] + (n % 10 ? " " + ones[n % 10] : "");
@@ -126,8 +159,9 @@ const numToWords = (n) => {
   );
 };
 
-export const numberToWords = (amount) => {
-  if (!amount || isNaN(amount)) return "Zero Rupees Only";
+/** Convert a numeric amount to Indian English words for invoices */
+export const numberToWords = (amount: number | string | null | undefined): string => {
+  if (!amount || isNaN(Number(amount))) return "Zero Rupees Only";
   const num = Math.abs(Number(amount));
   const rupees = Math.floor(num);
   const paise = Math.round((num - rupees) * 100);
@@ -140,8 +174,9 @@ export const numberToWords = (amount) => {
   return result;
 };
 
-// Status helpers
-export const ORDER_STATUS_CONFIG = {
+// ── Status Configuration Maps ────────────────────────────────
+
+export const ORDER_STATUS_CONFIG: Record<OrderStatus, StatusConfig> = {
   pending: { label: "Pending", color: "default", bgColor: "#f1f5f9", textColor: "#475569" },
   confirmed: { label: "Confirmed", color: "info", bgColor: "#dbeafe", textColor: "#1d4ed8" },
   in_production: {
@@ -162,7 +197,7 @@ export const ORDER_STATUS_CONFIG = {
   cancelled: { label: "Cancelled", color: "error", bgColor: "#fee2e2", textColor: "#b91c1c" },
 };
 
-export const INVOICE_STATUS_CONFIG = {
+export const INVOICE_STATUS_CONFIG: Record<InvoiceStatus, StatusConfig> = {
   unpaid: { label: "Unpaid", color: "error", bgColor: "#fee2e2", textColor: "#b91c1c" },
   partial: { label: "Partial", color: "warning", bgColor: "#fef3c7", textColor: "#b45309" },
   paid: { label: "Paid", color: "success", bgColor: "#dcfce7", textColor: "#15803d" },
@@ -170,14 +205,14 @@ export const INVOICE_STATUS_CONFIG = {
   cancelled: { label: "Cancelled", color: "default", bgColor: "#f1f5f9", textColor: "#475569" },
 };
 
-export const PRIORITY_CONFIG = {
+export const PRIORITY_CONFIG: Record<Priority, StatusConfig> = {
   low: { label: "Low", color: "default", bgColor: "#f1f5f9", textColor: "#475569" },
   normal: { label: "Normal", color: "info", bgColor: "#dbeafe", textColor: "#1d4ed8" },
   high: { label: "High", color: "warning", bgColor: "#fef3c7", textColor: "#b45309" },
   urgent: { label: "Urgent", color: "error", bgColor: "#fee2e2", textColor: "#b91c1c" },
 };
 
-export const PAYMENT_MODE_CONFIG = {
+export const PAYMENT_MODE_CONFIG: Record<PaymentMode, PaymentModeConfig> = {
   cash: { label: "Cash", icon: "💵" },
   upi: { label: "UPI", icon: "📱" },
   bank_transfer: { label: "Bank Transfer", icon: "🏦" },
@@ -187,15 +222,17 @@ export const PAYMENT_MODE_CONFIG = {
   other: { label: "Other", icon: "💰" },
 };
 
-// GSTIN validation
-export const isValidGSTIN = (gstin) => {
+// ── Validation ────────────────────────────────
+
+/** Validate Indian GSTIN format (15-character alphanumeric) */
+export const isValidGSTIN = (gstin: string | null | undefined): boolean => {
   if (!gstin) return true; // optional field
   const regex = /^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}$/;
   return regex.test(gstin.toUpperCase());
 };
 
-// Truncate text
-export const truncate = (str, length = 30) => {
+/** Truncate text with ellipsis */
+export const truncate = (str: string | null | undefined, length: number = 30): string => {
   if (!str) return "";
   return str.length > length ? str.substring(0, length) + "..." : str;
 };

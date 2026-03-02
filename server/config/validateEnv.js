@@ -27,15 +27,15 @@ function validateEnv() {
     process.exit(1);
   }
 
-  // Warn about weak JWT secret
-  if (
-    process.env.JWT_SECRET &&
-    process.env.JWT_SECRET.length < 32 &&
-    process.env.NODE_ENV === "production"
-  ) {
-    console.warn(
-      "⚠️  JWT_SECRET is shorter than 32 characters. Use a strong random string in production.",
-    );
+  // Warn about weak JWT secret in all environments, error in production
+  if (process.env.JWT_SECRET && process.env.JWT_SECRET.length < 32) {
+    const msg = "⚠️  JWT_SECRET is shorter than 32 characters. Use a strong random string.";
+    if (process.env.NODE_ENV === "production") {
+      console.error(`\n❌  ${msg} This is required in production.\n`);
+      process.exit(1);
+    } else {
+      console.warn(msg);
+    }
   }
 
   // Warn about placeholder JWT secret

@@ -193,4 +193,36 @@ router.put(
   },
 );
 
+// ------ REFRESH TOKEN ------
+// Allows clients to get a new access token before the current one expires.
+// The existing token must still be valid (not expired).
+router.post("/refresh-token", authMiddleware, async (req, res, next) => {
+  try {
+    // Verify the user still exists and is active
+    const result = await db.query("SELECT id, email, role, is_active FROM users WHERE id = $1", [
+      req.user.id,
+    ]);
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: "User not found." });
+    }
+
+    const user = result.rows[0];
+    if (!user.is_active) {
+      return res.status(403).json({ error: "Account deactivated." });
+    }
+
+    // Issue a new token with a fresh expiry
+    const token = jwt.sign(
+      { id: user.id, email: user.email, role: user.role },
+      process.env.JWT_SECRET,
+      { expiresIn: process.env.JWT_EXPIRES_IN || "7d" },
+    );
+
+    res.json({ token });
+  } catch (err) {
+    next(err);
+  }
+});
+
 module.exports = router;
